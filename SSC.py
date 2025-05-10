@@ -2,20 +2,21 @@ import tkinter as tk
 from PIL import Image, ImageDraw, ImageTk
 
 class SSC(tk.Canvas):
-        def __init__(self, master, height, width, bg, padx=5, cornerSmoothness=4, command=None, commandArgs : tuple = (), **kwargs):
-                super().__init__(master, width=width, height=height, **kwargs)
+        def __init__(self, master, height, width, bg, padx=5, cornerSmoothness=4,
+                     command=None, commandArgs : tuple = (), items=[], highlightthickness=0, font=('',13), **kwargs):
+                super().__init__(master, width=width, height=height, highlightthickness=0, **kwargs)
                 self.grid_propagate(False)
                 self.grid_columnconfigure([0,2], weight=1)
                 # self.grid_columnconfigure(1, weight=5)
                 self.grid_rowconfigure(0, weight=1)
                 self.configure(bg=master.cget('bg'))
                 
-                bacK = tk.Label(self, text="<", bg=bg, fg='white', font=('',13, 'bold'))
+                bacK = tk.Label(self, text="<", bg=bg, fg='white', font=font)
                 bacK.grid(row=0, column=0, sticky='nes')
-                self.thing = container(self, bg=bg, width=width, height=height, highlightthickness=0, padx=padx, items=['item1' ,'item2' ,'item3' ,'item4' ,'item5']
-                                  , command=command, commandArgs=commandArgs)
+                self.thing = container(self, bg=bg, width=width, height=height, highlightthickness=highlightthickness, padx=padx, items=items
+                                  , command=command, commandArgs=commandArgs, font=font)
                 self.thing.grid(row=0, column=1)
-                nexT = tk.Label(self, text=">", bg=bg, fg='white', font=('',13))
+                nexT = tk.Label(self, text=">", bg=bg, fg='white', font=font)
                 nexT.grid(row=0, column=2, sticky='nws')
                 nexT.bind("<Enter>", self.fwscroller)
                 bacK.bind("<Enter>", self.bwscroller)
@@ -48,11 +49,12 @@ class SSC(tk.Canvas):
         def scrollReset(self, event):
                 self.after_cancel(self.callback)
                 self.thing.xview_moveto(self.thing.xviewCenter)
+                print(self.thing.xviewCenter, self.thing.xview(), self.coords(self.thing.window))
         
 
 class container(tk.Canvas):
-        def __init__(self, master, width, height, bg, padx, items=None, command=None, commandArgs : tuple = (), **kwargs):
-                super().__init__(master, height=height, width=width-height*2, **kwargs)
+        def __init__(self, master, width, height, bg, padx, items=None, command=None, commandArgs : tuple = (), font=('',13), **kwargs):
+                super().__init__(master, height=height, width=width-height*2, bg=bg, **kwargs)
                 self.grid_propagate(False)
                 
                 self.width = width-height*2
@@ -61,19 +63,17 @@ class container(tk.Canvas):
                 self.padx = padx
                 self.command = command
                 self.commandArgs = commandArgs
+                self.font = font
                 
                 self.itemFrame = tk.Frame(self, bg=bg, height=height)
                 self.itemFrame.grid_rowconfigure(0, weight=1)
                 self.items = [ ]
-                if items is not None:
-                        for item in items: self.items.append(self.add(item))
-                        self.selection = self.items[len(self.items)//2]
+                self.window = self.create_window(0,0, window=self.itemFrame, anchor='nw', height=height)
                 
-                self.update()
-                self.configure(scrollregion=(0,0,self.itemFrame.winfo_reqwidth(),height))
-                self.create_window(0,0, window=self.itemFrame, anchor='nw', height=height)
-                self.xviewCenter = (self.itemFrame.winfo_reqwidth()/2-self.width/2)/self.itemFrame.winfo_reqwidth()
-                self.xview_moveto(self.xviewCenter)
+                if items is not None:
+                        for item in items: self.add(item)
+                        self.selection = self.items[len(self.items)//2]
+                        
                 
                 for _ in range(len(self.items)//2):
                         self.iterBack()
@@ -83,10 +83,15 @@ class container(tk.Canvas):
                 self.bind_class('node', "<Leave>", self.onHover)
 
         def add(self, text):
-                item = tk.Label(self.itemFrame, text=text, font=('',13), bg=self.bg, fg='gray', anchor='center', justify='center', height=self.height, padx=self.padx)
+                item = tk.Label(self.itemFrame, text=text, font=self.font, bg=self.bg, fg='gray', anchor='center', justify='center', height=self.height, padx=self.padx)
+                self.items.append(item)
                 self.itemFrame.columnconfigure(len(self.items), weight=1)
                 item.grid(row=0, column=len(self.items))
                 item.bindtags('node')
+                self.update()
+                self.xviewCenter = (self.itemFrame.winfo_reqwidth()/2-self.width/2)/self.itemFrame.winfo_reqwidth()
+                self.configure(scrollregion=(0,0,self.itemFrame.winfo_reqwidth(),self.height))
+                self.after(50, lambda: self.xview_moveto(self.xviewCenter))
                 return item
                 
         def itemManager(self):
@@ -143,7 +148,6 @@ class FrameLord(tk.Frame):
                 self.active.grid_remove()
                 self.frames[id].grid(in_=self, row=0, column=0, sticky='nwse')
                 self.active = self.frames[id]
-                print(id)
                 
         def __getattr__(self, what):
                 if what in self.frames:
